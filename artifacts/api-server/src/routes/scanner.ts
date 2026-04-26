@@ -1,8 +1,16 @@
 import { Router } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import OpenAI from "openai";
 import { AnalyzeFrameBody } from "@workspace/api-zod";
 
 const router = Router();
+
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is not set");
+  }
+  return new OpenAI({ apiKey });
+}
 
 router.post("/scanner/analyze-frame", async (req, res) => {
   const parseResult = AnalyzeFrameBody.safeParse(req.body);
@@ -12,12 +20,25 @@ router.post("/scanner/analyze-frame", async (req, res) => {
   }
 
   const { imageBase64 } = parseResult.data;
-
   const imageData = imageBase64.replace(/^data:image\/[a-z]+;base64,/, "");
 
+  let openai: OpenAI;
+  try {
+    openai = getOpenAIClient();
+  } catch {
+    res.status(500).json({
+      isFraudSuspected: false,
+      threatLevel: "none",
+      detectedIndicators: [],
+      explanation: "AI analysis unavailable. Please try again later.",
+      recommendation: "If you feel threatened, hang up immediately and call 1930.",
+    });
+    return;
+  }
+
   const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 1024,
+    model: "gpt-4o",
+    max_tokens: 1024,
     messages: [
       {
         role: "system",
@@ -34,18 +55,16 @@ Look for these specific fraud indicators:
 7. Badges, identity cards of government agencies
 8. Court room backgrounds
 9. Multiple "officers" in frame creating pressure
-10. Fake newsroom or TV broadcast backgrounds (scammers pretend to show "arrest news")
+10. Fake newsroom or TV broadcast backgrounds
 
 Respond in JSON format only:
 {
   "isFraudSuspected": boolean,
   "threatLevel": "none" | "low" | "medium" | "high" | "critical",
   "detectedIndicators": string[],
-  "explanation": string (max 100 words, in simple Hinglish if threat detected),
-  "recommendation": string (max 50 words, clear action in Hinglish if threat detected, English otherwise)
-}
-
-Be conservative - only flag if you see CLEAR visual indicators. A plain background is "none".`,
+  "explanation": string,
+  "recommendation": string
+}`,
       },
       {
         role: "user",
@@ -59,7 +78,7 @@ Be conservative - only flag if you see CLEAR visual indicators. A plain backgrou
           },
           {
             type: "text",
-            text: "Analyze this video call screenshot for digital arrest fraud indicators. Is this a potential scam?",
+            text: "Analyze this screenshot for digital arrest fraud indicators.",
           },
         ],
       },
