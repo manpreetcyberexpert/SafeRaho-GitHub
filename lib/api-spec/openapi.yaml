@@ -1,0 +1,248 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: scanner
+    description: AI-powered fraud visual detection
+  - name: numbers
+    description: Scam number lookup
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /scanner/analyze-frame:
+    post:
+      operationId: analyzeFrame
+      tags: [scanner]
+      summary: Analyze a video frame for fraud indicators
+      description: Uses AI vision to detect police uniforms, police backgrounds, advocate robes, or government office setups in a captured frame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyzeFrameBody"
+      responses:
+        "200":
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FrameAnalysisResult"
+
+  /numbers/check:
+    post:
+      operationId: checkScamNumber
+      tags: [numbers]
+      summary: Check if a phone number is a known scam number
+      description: Checks against a database of reported digital arrest scam numbers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckScamNumberBody"
+      responses:
+        "200":
+          description: Number check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScamNumberCheckResult"
+
+  /numbers/report:
+    post:
+      operationId: reportScamNumber
+      tags: [numbers]
+      summary: Report a new scam number
+      description: Report a phone number used in digital arrest fraud
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportScamNumberBody"
+      responses:
+        "201":
+          description: Number reported successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportScamNumberResult"
+
+  /numbers/known-scam-numbers:
+    get:
+      operationId: getKnownScamNumbers
+      tags: [numbers]
+      summary: Get list of known scam numbers
+      description: Returns paginated list of reported scam numbers
+      responses:
+        "200":
+          description: List of known scam numbers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnownScamNumbersList"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    AnalyzeFrameBody:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+          description: Base64-encoded image data (JPEG/PNG) from a video frame capture
+      required:
+        - imageBase64
+
+    FrameAnalysisResult:
+      type: object
+      properties:
+        isFraudSuspected:
+          type: boolean
+          description: Whether fraud indicators were detected
+        threatLevel:
+          type: string
+          enum: [none, low, medium, high, critical]
+          description: Severity level of detected threat
+        detectedIndicators:
+          type: array
+          items:
+            type: string
+          description: List of detected fraud indicators (e.g. "Police uniform", "Handcuffs visible")
+        explanation:
+          type: string
+          description: Brief explanation of what was detected
+        recommendation:
+          type: string
+          description: Recommended action for the user
+      required:
+        - isFraudSuspected
+        - threatLevel
+        - detectedIndicators
+        - explanation
+        - recommendation
+
+    CheckScamNumberBody:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+          description: Phone number to check (with or without country code)
+      required:
+        - phoneNumber
+
+    ScamNumberCheckResult:
+      type: object
+      properties:
+        isKnownScam:
+          type: boolean
+        reportCount:
+          type: number
+          description: Number of times this number has been reported
+        firstReported:
+          type: string
+          nullable: true
+          description: Date when first reported (ISO string)
+        lastReported:
+          type: string
+          nullable: true
+          description: Date when last reported (ISO string)
+        fraudType:
+          type: string
+          nullable: true
+          description: Type of fraud associated with this number
+        warningMessage:
+          type: string
+          description: Message to show the user
+      required:
+        - isKnownScam
+        - reportCount
+        - warningMessage
+
+    ReportScamNumberBody:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+        fraudType:
+          type: string
+          description: Type of fraud (digital_arrest, impersonation, extortion, etc.)
+        description:
+          type: string
+          nullable: true
+          description: Optional description of the incident
+      required:
+        - phoneNumber
+        - fraudType
+
+    ReportScamNumberResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        reportId:
+          type: number
+      required:
+        - success
+        - message
+        - reportId
+
+    KnownScamNumbersList:
+      type: object
+      properties:
+        numbers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: number
+              phoneNumber:
+                type: string
+              reportCount:
+                type: number
+              fraudType:
+                type: string
+              lastReported:
+                type: string
+            required:
+              - id
+              - phoneNumber
+              - reportCount
+              - fraudType
+              - lastReported
+        total:
+          type: number
+      required:
+        - numbers
+        - total

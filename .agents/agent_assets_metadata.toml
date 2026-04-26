@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "gsZlJcaUfiV0iR3O_Vfuc"
+uri = "file://SafeRaho-Android.tar.gz"
+type = "unspecified"
+title = "SafeRaho — Android Studio Project (Complete)"

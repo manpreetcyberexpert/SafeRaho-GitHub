@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: saferaho
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: bash build.sh
+    startCommand: node artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: saferaho-db
+          property: connectionString
+      - key: PNPM_VERSION
+        value: "9.15.0"
+      - key: NODE_VERSION
+        value: "22.17.0"
+
+databases:
+  - name: saferaho-db
+    region: singapore
+    plan: free
+    databaseName: saferaho
+    user: saferaho
